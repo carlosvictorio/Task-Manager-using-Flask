@@ -17,3 +17,7 @@ bcrypt = Bcrypt(app)
 
 # Always put Routes at end
 from todo_project import routes
+from todo_project import models
+
+with app.app_context():
+    db.create_all()
