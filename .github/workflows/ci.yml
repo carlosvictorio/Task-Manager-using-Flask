@@ -8,8 +8,9 @@ on:
 
 jobs:
   build:
-    name: Tests and SonarQube Scan
+    name: Tests, Security and SonarQube Scan
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -19,16 +20,50 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
           cache: pip
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt
+          pip install bandit
 
       - name: Run unit tests with coverage
         run: pytest --cov-report=xml
+
+      # ==========================
+      # SAST - Bandit
+      # ==========================
+      - name: Run Bandit security scan
+        run: |
+          mkdir -p reports
+          bandit -r . \
+            -f json \
+            -o reports/bandit-report.json \
+            -lll
+
+      # ==========================
+      # Dependency Analysis
+      # ==========================
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: "my-python-project"
+          path: "."
+          format: "HTML"
+          out: "reports"
+          args: >
+            --failOnCVSS 7
+
+      # ==========================
+      # Upload security reports
+      # ==========================
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: reports/
 
       - name: SonarQube scan
         uses: sonarsource/sonarqube-scan-action@v6
