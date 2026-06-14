@@ -2,5 +2,7 @@
 10111	IGNORE	Authentication Request Identified
 10112	IGNORE	Session Management Response Identified
 10031	WARN	User Controllable HTML Element Attribute
-10055	WARN	CSP: script-src unsafe-inline
 10036	WARN	Server Leaks Version Information
+10049	WARN	Non-Storable Content
+10055	WARN	CSP: script-src unsafe-inline
+90004	WARN	Cross-Origin-Resource-Policy Header Missing
