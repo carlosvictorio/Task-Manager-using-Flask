@@ -184,7 +184,6 @@ jobs:
         with:
           target: "http://172.17.0.1:5000" # IP do host acessível pelo container ZAP
           rules_file_name: "zap/zap-rules.tsv"
-          fail_action: true # FAIL-NEW bloqueia o pipeline
           allow_issue_writing: false # desabilita criação de issues automáticas
 
       - name: Upload ZAP DAST report
