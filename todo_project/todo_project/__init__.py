@@ -6,11 +6,12 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_bcrypt import Bcrypt
 from prometheus_flask_exporter import PrometheusMetrics
-metrics = PrometheusMetrics(app)
 
 load_dotenv()
 
 app = Flask(__name__)
+
+metrics = PrometheusMetrics(app)
 
 app.config['SECRET_KEY'] = os.environ.get(
     'SECRET_KEY'
