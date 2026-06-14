@@ -163,17 +163,29 @@ jobs:
             -e DATABASE_URI=${{ secrets.DATABASE_URI }} \
             task-manager:stage
 
+      - name: Check Docker container logs
+        run: |
+          sleep 5
+          echo "=== Container status ==="
+          docker ps -a
+          echo "=== App logs ==="
+          docker logs stage-app
+
       - name: Wait for stage to be ready
         run: |
           echo "Aguardando stage iniciar..."
-          for i in {1..15}; do
+          for i in {1..20}; do
             if curl -sf http://localhost:5000 > /dev/null; then
               echo "Stage no ar!"
-              break
+              exit 0
             fi
-            echo "Tentativa $i/15..."
-            sleep 3
+            echo "Tentativa $i/20... $(docker inspect -f '{{.State.Status}}' stage-app)"
+            sleep 5
           done
+          echo "=== Logs finais ==="
+          docker logs stage-app
+          echo "Aplicacao nao respondeu a tempo"
+          exit 1
 
       # --------------------------
       # DAST — OWASP ZAP no stage
