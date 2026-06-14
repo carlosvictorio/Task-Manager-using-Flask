@@ -5,6 +5,8 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_bcrypt import Bcrypt
+from prometheus_flask_exporter import PrometheusMetrics
+metrics = PrometheusMetrics(app)
 
 load_dotenv()
 
