@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 import os
 
 from flask import Flask
@@ -5,17 +6,16 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_bcrypt import Bcrypt
 
+load_dotenv()
 
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = os.environ.get(
-    'SECRET_KEY',
-    '45cf93c4d41348cd9980674ade9a7356'
+    'SECRET_KEY'
 )
 
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
-    'DATABASE_URI',
-    'sqlite:///site.db'
+    'DATABASE_URI'
 )
 
 # Segurança de cookie
