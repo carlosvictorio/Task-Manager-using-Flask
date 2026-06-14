@@ -1,0 +1,31 @@
+# ambiente virtual
+venv/
+.venv/
+
+# git
+.git/
+.github/
+
+# cache python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
+# arquivos temporários
+*.log
+
+# output gerado
+output/
+
+# testes (opcional)
+tests/
