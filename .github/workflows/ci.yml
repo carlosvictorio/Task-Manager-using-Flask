@@ -150,18 +150,12 @@ jobs:
       # --------------------------
       # Deploy no ambiente de stage
       # --------------------------
-      - name: Build Docker image for stage
-        run: docker build -t task-manager:stage .
-
       - name: Start stage environment
-        run: |
-          docker run -d \
-            --name stage-app \
-            -p 5000:5000 \
-            -e FLASK_ENV=staging \
-            -e SECRET_KEY=${{ secrets.SECRET_KEY }} \
-            -e DATABASE_URI=${{ secrets.DATABASE_URI }} \
-            task-manager:stage
+        env:
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          DATABASE_URI: ${{ secrets.DATABASE_URI }}
+          GRAFANA_PASSWORD: ${{ secrets.GRAFANA_PASSWORD }}
+        run: docker compose up -d --build
 
       - name: Wait for stage to be ready
         run: |
@@ -171,11 +165,11 @@ jobs:
               echo "Stage no ar!"
               exit 0
             fi
-            echo "Tentativa $i/20... $(docker inspect -f '{{.State.Status}}' stage-app)"
+            echo "Tentativa $i/20..."
             sleep 5
           done
           echo "=== Logs finais ==="
-          docker logs stage-app
+          docker compose logs app
           echo "Aplicacao nao respondeu a tempo"
           exit 1
 
@@ -189,7 +183,8 @@ jobs:
         uses: zaproxy/action-baseline@v0.14.0
         with:
           target: "http://172.17.0.1:5000" # IP do host acessível pelo container ZAP
-          rules_file_name: "zap/zap-rules.tsv"
+          rules_file_name: ".zap/zap-rules.tsv"
+          fail_action: true # FAIL-NEW bloqueia o pipeline
           allow_issue_writing: false # desabilita criação de issues automáticas
 
       - name: Upload ZAP DAST report
@@ -208,6 +203,4 @@ jobs:
 
       - name: Teardown stage environment
         if: always()
-        run: |
-          docker stop stage-app || true
-          docker rm   stage-app || true
+        run: docker compose down
