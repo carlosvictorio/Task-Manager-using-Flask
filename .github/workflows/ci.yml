@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -7,6 +7,9 @@ on:
     branches: [main]
 
 jobs:
+  # ============================================================
+  # CI — Testes, Segurança e SonarQube
+  # ============================================================
   build:
     name: Tests, Security and SonarQube Scan
     runs-on: ubuntu-latest
@@ -71,3 +74,137 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+  # ============================================================
+  # CD — Review: ambiente temporário para Pull Requests
+  # ============================================================
+  review:
+    name: Review Environment (PR only)
+    runs-on: ubuntu-latest
+    needs: build
+    # Executa apenas em Pull Requests — cria ambiente temporário de revisão
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image for review
+        run: docker build -t task-manager:review-${{ github.event.pull_request.number }} .
+
+      - name: Start review environment
+        run: |
+          docker run -d \
+            --name review-app-pr-${{ github.event.pull_request.number }} \
+            -p 5000:5000 \
+            -e FLASK_ENV=staging \
+            task-manager:review-${{ github.event.pull_request.number }}
+
+      - name: Wait for application to be ready
+        run: |
+          echo "Aguardando aplicação iniciar..."
+          for i in {1..15}; do
+            if curl -sf http://localhost:5000 > /dev/null; then
+              echo "Aplicação no ar!"
+              break
+            fi
+            echo "Tentativa $i/15..."
+            sleep 3
+          done
+
+      - name: Show review environment info
+        run: |
+          echo "========================================"
+          echo "  Ambiente de Review — PR #${{ github.event.pull_request.number }}"
+          echo "  Branch: ${{ github.head_ref }}"
+          echo "  Commit: ${{ github.sha }}"
+          echo "  Status: $(curl -so /dev/null -w '%{http_code}' http://localhost:5000)"
+          echo "========================================"
+
+      - name: Teardown review environment
+        if: always()
+        run: |
+          docker stop review-app-pr-${{ github.event.pull_request.number }} || true
+          docker rm   review-app-pr-${{ github.event.pull_request.number }} || true
+
+  # ============================================================
+  # CD — Deploy em Stage + DAST com OWASP ZAP
+  # ============================================================
+  deploy-stage:
+    name: Deploy to Stage + DAST (OWASP ZAP)
+    runs-on: ubuntu-latest
+    needs: build
+    # Executa apenas no merge para main (após aprovação do PR)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    environment:
+      name: stage # ambiente declarado no GitHub → Settings > Environments
+      url: http://localhost:5000
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --------------------------
+      # Deploy no ambiente de stage
+      # --------------------------
+      - name: Build Docker image for stage
+        run: docker build -t task-manager:stage .
+
+      - name: Start stage environment
+        run: |
+          docker run -d \
+            --name stage-app \
+            -p 5000:5000 \
+            -e FLASK_ENV=staging \
+            task-manager:stage
+
+      - name: Wait for stage to be ready
+        run: |
+          echo "Aguardando stage iniciar..."
+          for i in {1..15}; do
+            if curl -sf http://localhost:5000 > /dev/null; then
+              echo "Stage no ar!"
+              break
+            fi
+            echo "Tentativa $i/15..."
+            sleep 3
+          done
+
+      # --------------------------
+      # DAST — OWASP ZAP no stage
+      # --------------------------
+      - name: Create ZAP reports directory
+        run: mkdir -p zap-reports
+
+      - name: Run OWASP ZAP Baseline Scan (DAST)
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: "http://localhost:5000"
+          # WARN não bloqueia; edite zap-rules.tsv para promover regras a FAIL
+          rules_file_name: ".zap/zap-rules.tsv"
+          report_html: true
+          report_json: true
+          report_md: true
+          artifact_name: "zap-stage-report"
+          fail_action: true # FAIL-NEW bloqueia o pipeline
+
+      - name: Upload ZAP DAST report
+        if: always() # sobe o relatório mesmo se o ZAP falhar
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-stage-report
+          path: zap-reports/
+
+      # --------------------------
+      # Aprovação manual (opcional)
+      # --------------------------
+      # Para exigir aprovação humana antes de ir para produção,
+      # configure um "Required reviewer" no ambiente "stage" em:
+      # GitHub → Settings → Environments → stage → Protection rules
+
+      - name: Teardown stage environment
+        if: always()
+        run: |
+          docker stop stage-app || true
+          docker rm   stage-app || true
