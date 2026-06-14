@@ -163,14 +163,6 @@ jobs:
             -e DATABASE_URI=${{ secrets.DATABASE_URI }} \
             task-manager:stage
 
-      - name: Check Docker container logs
-        run: |
-          sleep 5
-          echo "=== Container status ==="
-          docker ps -a
-          echo "=== App logs ==="
-          docker logs stage-app
-
       - name: Wait for stage to be ready
         run: |
           echo "Aguardando stage iniciar..."
